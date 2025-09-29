@@ -13,16 +13,16 @@ To initialize the dependencies:
 poetry install
 ```
 
-To launch Jupyter Notebook:
-
-```bash
-poetry run jupyter notebook
-```
-
 To create the env:
 
 ```bash
 poetry run python -m ipykernel install --user --name=pfe-poetry --display-name "PFE Poetry Env"
+```
+
+To launch Jupyter Notebook:
+
+```bash
+poetry run jupyter notebook
 ```
 
 
