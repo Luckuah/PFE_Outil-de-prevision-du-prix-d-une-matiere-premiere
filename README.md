@@ -19,6 +19,10 @@ To launch Jupyter Notebook:
 poetry run jupyter notebook
 ```
 
+To create the env:
 
+```bash
+poetry run python -m ipykernel install --user --name=pfe-poetry --display-name "PFE Poetry Env"
+```
 
 
