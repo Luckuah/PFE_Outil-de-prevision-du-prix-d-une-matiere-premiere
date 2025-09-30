@@ -3,13 +3,23 @@ name = "pfe-outil-de-prevision-du-prix-d-une-matiere-premiere"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Luckuah",email = "lululorang@gmail.com"}
+    {name = "Luckuah", email = "lululorang@gmail.com"}
 ]
+package-mode = false
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.12"
 dependencies = [
+    "yfinance (>=0.2.66,<0.3.0)",
+    "pandas (>=2.3.2,<3.0.0)",
+    "matplotlib (>=3.10.6,<4.0.0)",
+    "ipykernel (>=6.30.1,<7.0.0)",
+    "scikit-learn (>=1.7.2,<2.0.0)",
+    "numpy (>=2.1.0)",
+    "torch (>=2.8.0,<3.0.0)",
+    "torchvision (>=0.23.0,<1.0.0)",
+    "torchaudio (>=2.8.0,<3.0.0)",
+    "ta (>=0.11.0,<0.12.0)"
 ]
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -19,4 +29,3 @@ build-backend = "poetry.core.masonry.api"
 notebook = "^7.4.7"
 jupyterlab = "^4.4.9"
 ipykernel = "^6.30.1"
-
