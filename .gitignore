@@ -1,0 +1,42 @@
+# Fichiers compilés Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnements virtuels
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Fichiers de logs et bases temporaires
+*.log
+*.sqlite3
+
+# Configs locales et caches
+*.DS_Store
+*.pyo
+*.pyd
+*.so
+.cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / éditeurs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Jupyter notebooks
+.ipynb_checkpoints
+
+# Outils spécifiques
+dist/
+build/
+.eggs/
+*.egg-info/
+*.egg
