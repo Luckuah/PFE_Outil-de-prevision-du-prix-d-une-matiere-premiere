@@ -1,0 +1,189 @@
+import pandas as pd
+import yfinance as yf
+
+# ==========================
+# 1. Fonctions utilitaires
+# ==========================
+
+def to_timestamp(date_str):
+    """
+    Convertit une date (str) en Timestamp pandas.
+    Accepte plusieurs formats (YYYY-MM-DD, DD/MM/YYYY, etc.).
+    """
+    return pd.to_datetime(date_str, dayfirst=False, errors='raise')
+
+
+def next_available_date(index, target_date):
+    """
+    Prend un DatetimeIndex 'index' et une date cible 'target_date'.
+    Retourne le premier jour de bourse >= target_date.
+    Si aucune date n'est disponible après target_date, lève une erreur.
+    """
+    target_date = pd.to_datetime(target_date)
+    mask = index[index >= target_date]
+    if len(mask) == 0:
+        raise ValueError(
+            f"Aucune date de cotation disponible à partir de {target_date.date()} "
+            f"(la série s'arrête le {index.max().date()})."
+        )
+    return mask[0]
+
+
+def get_brent_data(user_start, user_end, ticker="BZ=F"):
+    """
+    Récupère les données de prix du Brent sur Yahoo Finance (ticker BZ=F)
+    entre user_start et user_end (strings).
+
+    - Si user_start ou user_end n'existent pas dans la série de prix,
+      on prend le jour de bourse suivant le plus proche.
+    - Retourne : (df, adjusted_start, adjusted_end)
+      df : DataFrame avec Date en index et colonne 'Brent_Price'
+    """
+    start = to_timestamp(user_start)
+    end = to_timestamp(user_end)
+
+    # On ajoute une marge de quelques jours pour être sûr de récupérer les jours de bourse
+    margin = pd.Timedelta(days=7)
+    raw = yf.download(
+        ticker,
+        start=start - margin,
+        end=end + margin,
+        auto_adjust=False,
+        progress=False,
+    )
+
+    if raw.empty:
+        raise RuntimeError(
+            f"Aucune donnée récupérée pour {ticker}. Vérifie la connexion internet ou le ticker."
+        )
+
+    # On ne garde qu'une colonne (Adj Close de préférence)
+    if "Adj Close" in raw.columns:
+        df = raw[["Adj Close"]].rename(columns={"Adj Close": "Brent_Price"})
+    else:
+        df = raw[["Close"]].rename(columns={"Close": "Brent_Price"})
+
+    # Ajustement des dates de début / fin au jour ouvré suivant dans les données
+    adj_start = next_available_date(df.index, start)
+    adj_end = next_available_date(df.index, end)
+
+    # Slicing final
+    df = df.loc[adj_start:adj_end].copy()
+    df.index.name = "Date"
+
+    return df, adj_start, adj_end
+
+
+def add_flag_periods(df, date_ranges, col_name="flag_period"):
+    """
+    Ajoute une colonne à df avec des 1 sur les plages données et 0 ailleurs.
+    - df : DataFrame avec DatetimeIndex
+    - date_ranges : liste de tuples (start_str, end_str)
+    - col_name : nom de la colonne créée
+    """
+    df = df.copy()
+    df[col_name] = 0
+
+    for (start_str, end_str) in date_ranges:
+        start = to_timestamp(start_str)
+        end = to_timestamp(end_str)
+
+        # Ajustement sur les dates disponibles dans CE df
+        try:
+            s_adj = next_available_date(df.index, start)
+        except ValueError:
+            # Toute la plage est avant les données -> on ignore
+            continue
+
+        mask_end = df.index[df.index >= end]
+        if len(mask_end) == 0:
+            # Toute la plage est après la fin du df -> on ignore cette plage
+            continue
+        e_adj = mask_end[0]
+
+        # On remplit la plage en 1
+        df.loc[s_adj:e_adj, col_name] = 1
+
+    return df
+
+
+# ==========================
+# 2. Nouvelle fonction : bornes disponibles
+# ==========================
+
+def get_brent_bounds(ticker="BZ=F"):
+    """
+    Récupère l'historique complet pour connaître
+    la première et la dernière date disponibles.
+    """
+    hist = yf.Ticker(ticker).history(period="max", auto_adjust=False)
+    if hist.empty:
+        raise RuntimeError(
+            f"Impossible de récupérer l'historique complet pour {ticker}."
+        )
+    return hist.index.min(), hist.index.max()
+
+
+# ==========================
+# 3. Fonction principale
+# ==========================
+
+def creer_dataframe_brent_avec_plages(ticker="BZ=F"):
+    """
+    Fonction interactive :
+      - Affiche les bornes disponibles des données Brent
+      - Demande les dates de début / fin de la série Brent à l'utilisateur
+      - Récupère les données
+      - Demande le nombre de plages à marquer
+      - Demande les dates pour chaque plage
+      - Ajoute une colonne 0/1 correspondant aux plages
+      - Retourne le DataFrame final
+    """
+    # --- 0) On informe l'utilisateur des bornes ---
+    min_date, max_date = get_brent_bounds(ticker=ticker)
+    print(f"Les données Brent ({ticker}) sont disponibles du {min_date.date()} au {max_date.date()}.")
+
+    # --- 1) Saisie des dates pour la série principale ---
+    user_start = input("Date de début pour le Brent (ex: 2000-01-01) : ")
+    user_end = input("Date de fin pour le Brent   (ex: 2020-12-31) : ")
+
+    df_brent, adj_start, adj_end = get_brent_data(user_start, user_end, ticker=ticker)
+
+    print(f"\nDates ajustées (jours de bourse) :")
+    print(f"  Début demandé : {user_start}  ->  utilisé : {adj_start.date()}")
+    print(f"  Fin demandée  : {user_end}    ->  utilisé : {adj_end.date()}")
+
+    # --- 2) Nombre de plages à définir ---
+    while True:
+        try:
+            n_plages = int(input("\nCombien de plages de dates veux-tu définir ? (0, 1, 2, ...) : "))
+            if n_plages < 0:
+                print("Merci d'entrer un entier positif.")
+                continue
+            break
+        except ValueError:
+            print("Entrée invalide, merci d'entrer un entier (0, 1, 2, ...).")
+
+    date_ranges = []
+
+    # --- 3) Saisie des plages ---
+    for i in range(1, n_plages + 1):
+        print(f"\nPlage {i} :")
+        start_str = input("  Date de début de la plage (ex: 2008-09-01) : ")
+        end_str = input("  Date de fin de la plage   (ex: 2012-11-30) : ")
+        date_ranges.append((start_str, end_str))
+
+    # --- 4) Ajout de la colonne de 0/1 ---
+    df_flagged = add_flag_periods(df_brent, date_ranges, col_name="selected_period")
+
+    print("\nAperçu du tableau final :")
+    print(df_flagged.head())
+    print(df_flagged.tail())
+
+    # --- 5) On renvoie le DataFrame ---
+    return df_flagged
+
+
+# Exemple d'utilisation
+if __name__ == "__main__":
+    df_resultat = creer_dataframe_brent_avec_plages()
