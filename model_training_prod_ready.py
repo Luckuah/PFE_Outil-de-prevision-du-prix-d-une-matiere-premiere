@@ -137,65 +137,26 @@ def add_technical_indicators(df):
     return df
 
 
-def map_market_regime(date):
-    """
-    Mappe les régimes de marché basés sur les crises historiques.
-    Cet indicateur aide le modèle à comprendre le contexte économique.
-    
-    -1 = Bear market / Crise (volatilité élevée, tendance baissière)
-     0 = Normal / Transition (période neutre)
-     1 = Bull market / Recovery (tendance haussière)
-    
-    Args:
-        date (pd.Timestamp): Date à mapper
-    
-    Returns:
-        int: Code du régime (-1, 0, ou 1)
-    """
-    date_val = date
-    
-    # COVID CRASH (2020-03 à 2020-04)
-    if pd.Timestamp('2020-03-01') <= date_val <= pd.Timestamp('2020-04-30'):
-        return -1
-    
-    # RECOVERY POST-COVID (2020-05 à 2021)
-    elif pd.Timestamp('2020-05-01') <= date_val <= pd.Timestamp('2021-12-31'):
-        return 1
-    
-    # INFLATION & GEOPOLITICS (2022) - Ukraine, Taux Fed
-    elif pd.Timestamp('2022-01-01') <= date_val <= pd.Timestamp('2022-06-30'):
-        return 0
-    
-    # ENERGY CRISIS & RECOVERY (2022-2023)
-    elif pd.Timestamp('2022-07-01') <= date_val <= pd.Timestamp('2023-08-31'):
-        return 1
-    
-    # BANKING CRISIS (2023-03) - SVB
-    elif pd.Timestamp('2023-03-01') <= date_val <= pd.Timestamp('2023-03-31'):
-        return -1
-    
-    # RECOVERY & STABILITY (2023-04 onwards)
-    elif pd.Timestamp('2023-04-01') <= date_val <= pd.Timestamp('2025-01-31'):
-        return 1
-    
-    # Période par défaut
-    else:
-        return 0
 
 
-def add_market_regime(df):
+
+def add_market_regime(df, crises_dict=None):
     """
-    Ajoute la colonne Market_Regime au DataFrame.
-    
-    Args:
-        df (pd.DataFrame): DataFrame
-    
-    Returns:
-        pd.DataFrame: DataFrame avec Market_Regime ajouté
+    Ajoute la colonne Market_Regime basée sur les crises fournies.
+    Si crises_dict est None, utilise une logique par défaut ou 0.
     """
-    print("\n📍 Mapping des régimes de marché...")
-    df['Market_Regime'] = df.index.map(lambda x: map_market_regime(x))
-    print("✅ Régime de marché mappé")
+    print("\n📍 Mapping des régimes de marché dynamiques...")
+    
+    # On initialise tout à 1 (Bull/Normal) par défaut
+    df['Market_Regime'] = 1 
+    
+    if crises_dict:
+        for nom, (debut, fin) in crises_dict.items():
+            # On passe en régime de crise (-1) pour toutes les plages sélectionnées
+            mask = (df.index >= pd.to_datetime(debut)) & (df.index <= pd.to_datetime(fin))
+            df.loc[mask, 'Market_Regime'] = -1
+            
+    print(f"✅ Régime de marché mappé avec {len(crises_dict) if crises_dict else 0} zones de crise.")
     return df
 
 
@@ -521,7 +482,7 @@ def forecast_future(model, last_sequence, steps, n_features, scaler_y, std_val, 
 
 # ==================== SECTION 5: PIPELINE PRINCIPAL ====================
 
-def train_full_pipeline(config=CONFIG):
+def train_full_pipeline(config=CONFIG,crises_dict=None):
     """
     Exécute le pipeline complet d'entraînement.
     À utiliser pour entraîner le modèle une fois.
@@ -541,7 +502,7 @@ def train_full_pipeline(config=CONFIG):
     )
     
     df = add_technical_indicators(df)
-    df = add_market_regime(df)
+    df = add_market_regime(df,crises_dict)
     df = df.dropna()
     
     print(f"\n✅ Données nettoyées: {len(df)} jours")
@@ -637,7 +598,7 @@ def load_and_predict(model_path='lstm_oil_model.h5'):
         dict: Nouvelles prédictions
     """
     print("🔄 Chargement du modèle...")
-    model = load_model(model_path)
+    model = load_model(model_path, compile=False)
     
     # Télécharger les dernières données
     df = download_data(

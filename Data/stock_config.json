@@ -1,0 +1,16 @@
+{
+  "config_petrole": {
+    "OIL_TICKER": "CL=F",
+    "VIX_TICKER": "^VIX",
+    "START_DATE": "2020-01-01",
+    "END_DATE": "2025-01-31",
+    "LOOKBACK": 60,
+    "FUTURE_STEPS": 10,
+    "LSTM_UNITS": 128,
+    "EPOCHS": 100,
+    "BATCH_SIZE": 32,
+    "VALIDATION_SPLIT": 0.2,
+    "PATIENCE": 20,
+    "CONFIDENCE_LEVEL": 0.95
+  }
+}
