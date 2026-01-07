@@ -25,4 +25,12 @@ To launch Jupyter Notebook:
 poetry run jupyter notebook
 ```
 
+To run the App:
+
+```bash
+poetry run streamlit run affichage.py
+```
+s
+
+
 
