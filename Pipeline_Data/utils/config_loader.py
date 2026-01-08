@@ -33,8 +33,8 @@ class Config:
         # Add environment variables
         self.config['database']['host'] = os.getenv('DB_HOST', 'localhost')
         self.config['database']['port'] = int(os.getenv('DB_PORT', 3306))
-        self.config['database']['database'] = os.getenv('DB_NAME', 'gdelt_oil')
-        self.config['database']['user'] = os.getenv('DB_USER', 'gdelt_user')
+        self.config['database']['database'] = os.getenv('DB_NAME', 'gdelt')
+        self.config['database']['user'] = os.getenv('DB_USER', 'root')
         self.config['database']['password'] = os.getenv('DB_PASSWORD', '')
         
         # Add paths

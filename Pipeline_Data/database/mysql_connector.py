@@ -8,8 +8,8 @@ from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
 
-from ..utils.logger import get_logger
-from ..utils.config_loader import get_config
+from utils.logger import get_logger
+from utils.config_loader import get_config
 
 logger = get_logger(__name__)
 

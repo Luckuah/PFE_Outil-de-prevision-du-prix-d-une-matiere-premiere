@@ -12,7 +12,7 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
 
-from ..utils.logger import get_logger
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

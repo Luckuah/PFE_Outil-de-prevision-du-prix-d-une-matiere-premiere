@@ -31,7 +31,7 @@ gdelt:
     - SOURCEURL
 
 database:
-  table_name: "gdelt_articles_scored"
+  table_name: "gdelt"
   batch_size: 100
 
 models:
@@ -54,7 +54,7 @@ models:
 
 filtering:
   # Score minimum pour garder un article
-  min_score: 50
+  min_score: 1
   
   # Nombre maximum d'articles par jour
   max_articles_per_day: 100

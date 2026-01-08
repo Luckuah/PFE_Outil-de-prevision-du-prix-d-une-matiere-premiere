@@ -1,6 +1,3 @@
-"""
-GDELT Data Fetcher using gdelt Python library
-"""
 import gdelt
 import pandas as pd
 from datetime import datetime, timedelta
@@ -8,8 +5,8 @@ from typing import List, Optional
 import time
 from tqdm import tqdm
 
-from ..utils.logger import get_logger
-from ..utils.config_loader import get_config
+from utils.logger import get_logger
+from utils.config_loader import get_config
 
 logger = get_logger(__name__)
 

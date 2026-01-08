@@ -7,8 +7,8 @@ from typing import List, Tuple
 from sentence_transformers import SentenceTransformer
 from llama_cpp import Llama  # <--- Ajout pour la génération
 
-from ..utils.logger import get_logger
-from ..utils.config_loader import get_config
+from utils.logger import get_logger
+from utils.config_loader import get_config
 
 logger = get_logger(__name__)
 
