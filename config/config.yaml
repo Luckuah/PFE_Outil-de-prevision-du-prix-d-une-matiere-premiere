@@ -1,0 +1,206 @@
+gdelt:
+  # Période de collecte
+  start_date: "2024-12-01"
+  end_date: "2025-01-31"
+  
+  # Colonnes à extraire
+  columns:
+    - GlobalEventID
+    - Day
+    - MonthYear
+    - Year
+    - Actor1Name
+    - Actor1CountryCode
+    - Actor2Name
+    - Actor2CountryCode
+    - EventCode
+    - EventRootCode
+    - QuadClass
+    - GoldsteinScale
+    - NumMentions
+    - NumSources
+    - NumArticles
+    - AvgTone
+    - Actor1Geo_CountryCode
+    - Actor2Geo_CountryCode
+    - ActionGeo_CountryCode
+    - ActionGeo_Fullname
+    - ActionGeo_Lat
+    - ActionGeo_Long
+    - DATEADDED
+    - SOURCEURL
+
+database:
+  table_name: "gdelt_articles_scored"
+  batch_size: 100
+
+models:
+  trieur:
+    name: "Qwen/Qwen2.5-0.5B"
+    device: "auto"  # "cuda", "cpu", or "auto"
+    max_length: 2048
+    temperature: 0.3
+    max_new_tokens: 100
+  
+  embeddings:
+    name: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    batch_size: 32
+    dimension: 768
+  
+  rag:
+    k: 5  # Top-k documents à retourner
+    similarity_threshold: 0.5
+    rerank: false  # Activer le reranking avec Qwen
+
+filtering:
+  # Score minimum pour garder un article
+  min_score: 50
+  
+  # Nombre maximum d'articles par jour
+  max_articles_per_day: 100
+  
+  # Langues acceptées
+  languages:
+    - en
+    - fr
+    - de
+    - es
+  
+  # Pays producteurs de pétrole (codes CAMEO)
+  oil_producing_countries:
+    - SAU  # Arabie Saoudite
+    - RUS  # Russie
+    - USA  # États-Unis
+    - IRQ  # Irak
+    - IRN  # Iran
+    - CAN  # Canada
+    - CHN  # Chine
+    - UAE  # Émirats Arabes Unis
+    - KWT  # Koweït
+    - VEN  # Venezuela
+    - NGA  # Nigéria
+    - NOR  # Norvège
+    - MEX  # Mexique
+    - QAT  # Qatar
+    - DZA  # Algérie
+    - BRA  # Brésil
+    - KAZ  # Kazakhstan
+    - GBR  # Royaume-Uni
+  
+  # EventCodes CAMEO pertinents
+  relevant_event_codes:
+    - "01"  # Make public statement
+    - "02"  # Appeal
+    - "04"  # Consult
+    - "06"  # Engage in material cooperation
+    - "07"  # Provide aid
+    - "14"  # Protest
+    - "16"  # Reduce relations
+    - "17"  # Coerce
+    - "18"  # Assault
+    - "19"  # Fight
+    - "20"  # Engage in unconventional mass violence
+
+scoring:
+  # Poids pour le score final
+  weights:
+    llm: 0.6
+    goldstein: 0.1
+    mentions: 0.1
+    tone: 0.1
+    oil_country: 0.1
+
+keywords:
+  oil:
+    en:
+      - oil
+      - petroleum
+      - crude
+      - brent
+      - wti
+      - opec
+      - drilling
+      - refinery
+      - barrel
+      - shale
+      - fracking
+      - pipeline
+      - tanker
+      - energy
+      - fossil fuel
+      - upstream
+      - downstream
+      - exploration
+    fr:
+      - pétrole
+      - brut
+      - baril
+      - raffinerie
+      - forage
+      - oléoduc
+      - énergie fossile
+      - hydrocarbure
+      - opep
+    de:
+      - öl
+      - erdöl
+      - rohöl
+      - raffinerie
+      - pipeline
+      - barrel
+      - energie
+    es:
+      - petróleo
+      - crudo
+      - barril
+      - refinería
+      - perforación
+      - oleoducto
+      - energía
+  
+  gas:
+    en:
+      - natural gas
+      - lng
+      - gas pipeline
+      - gas reserves
+      - shale gas
+      - gazprom
+    fr:
+      - gaz naturel
+      - gnl
+      - gazoduc
+      - réserves de gaz
+    de:
+      - erdgas
+      - gasleitung
+      - gasreserven
+    es:
+      - gas natural
+      - gasoducto
+      - reservas de gas
+  
+  organizations:
+    - opec
+    - opec+
+    - iea
+    - exxon
+    - exxonmobil
+    - shell
+    - bp
+    - chevron
+    - total
+    - totalenergies
+    - gazprom
+    - saudi aramco
+    - aramco
+    - rosneft
+    - petrobras
+    - conocophillips
+    - eni
+    - equinor
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/pipeline.log"
