@@ -24,7 +24,7 @@ class GDELTFetcher:
         
         logger.info("✅ GDELT Fetcher initialized (version 2.0)")
     
-    def fetch_day(self, date: str, coverage: bool = True) -> pd.DataFrame:
+    def fetch_day2(self, date: str, coverage: bool = True) -> pd.DataFrame:
         """
         Fetch GDELT data for a specific day
         
@@ -69,6 +69,68 @@ class GDELTFetcher:
             
         except Exception as e:
             logger.error(f"❌ Error fetching data for {date}: {e}")
+            return pd.DataFrame()
+        
+
+    def fetch_day(self, date: str, coverage: bool = True) -> pd.DataFrame:
+        logger.info(f"📥 Fetching GDELT data for {date} (coverage={coverage})...")
+        
+        try:
+            # Fetch data
+            df = self.gd.Search(date, table='events', coverage=coverage)
+            
+            if df is None or df.empty:
+                logger.warning(f"⚠️ No data returned for {date}")
+                return pd.DataFrame()
+            
+            logger.info(f"✅ Fetched {len(df)} events with {len(df.columns)} columns")
+            
+            # ========== AJOUTER LES COLONNES MANQUANTES ==========
+            
+            # 1. Ajouter GlobalEventID si manquant (auto-increment)
+            if 'GlobalEventID' not in df.columns:
+                logger.warning("⚠️ GlobalEventID missing, creating auto-increment IDs")
+                # Créer des IDs uniques basés sur la date + index
+                date_prefix = date.replace('-', '')  # 20250111
+                df['GlobalEventID'] = df.apply(
+                    lambda row: int(f"{date_prefix}{row.name:06d}"), 
+                    axis=1
+                )
+                logger.info(f"✅ Created GlobalEventID column (range: {df['GlobalEventID'].min()} - {df['GlobalEventID'].max()})")
+            
+            # 2. Ajouter Day si manquant (date du fetch)
+            if 'Day' not in df.columns:
+                logger.warning("⚠️ Day missing, creating from date")
+                # Convertir date YYYY-MM-DD en format YYYYMMDD
+                day_value = int(date.replace('-', ''))  # 20250111
+                df['Day'] = day_value
+                logger.info(f"✅ Created Day column: {day_value}")
+            
+            # 3. Vérifier DATEADDED (créer si manquant)
+            if 'DATEADDED' not in df.columns:
+                logger.warning("⚠️ DATEADDED missing, creating from Day")
+                # Format: YYYYMMDDHHMMSS (on met 120000 = midi)
+                if 'Day' in df.columns:
+                    df['DATEADDED'] = df['Day'].apply(lambda d: int(f"{d}120000"))
+                else:
+                    date_added = int(f"{date.replace('-', '')}120000")
+                    df['DATEADDED'] = date_added
+                logger.info(f"✅ Created DATEADDED column")
+            
+            # ========== VÉRIFICATION FINALE ==========
+            
+            critical_cols = ['GlobalEventID', 'Day', 'DATEADDED']
+            missing_cols = [col for col in critical_cols if col not in df.columns]
+            
+            if missing_cols:
+                logger.error(f"❌ CRITICAL: Still missing columns: {missing_cols}")
+            else:
+                logger.info(f"✅ All critical columns present: {critical_cols}")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to fetch GDELT data for {date}: {e}")
             return pd.DataFrame()
     
     def fetch_date_range(self, start_date: str, end_date: str, 

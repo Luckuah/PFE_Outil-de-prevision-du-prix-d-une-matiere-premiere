@@ -1,8 +1,8 @@
 """
 MySQL Database connector for GDELT Oil Pipeline
 """
-import pymysql
-from pymysql import Error
+import mysql.connector
+from mysql.connector import Error, pooling
 import pandas as pd
 from typing import List, Dict, Any, Optional
 import json
@@ -15,32 +15,32 @@ logger = get_logger(__name__)
 
 
 class MySQLConnector:
-    """MySQL database connector"""
+    """MySQL database connector with connection pooling"""
     
     def __init__(self):
         """Initialize MySQL connector"""
         self.config = get_config()
         self.db_config = self.config.get_db_config()
-        self.connection = None
         
-        logger.info(f"✅ MySQL connector initialized (host={self.db_config['host']})")
+        # Create connection pool
+        try:
+            self.pool = pooling.MySQLConnectionPool(
+                pool_name="gdelt_pool",
+                pool_size=5,
+                pool_reset_session=True,
+                **self.db_config
+            )
+            logger.info(f"✅ MySQL connection pool created (host={self.db_config['host']})")
+        except Error as e:
+            logger.error(f"❌ Failed to create connection pool: {e}")
+            raise
     
     def get_connection(self):
-        """Get database connection"""
+        """Get connection from pool"""
         try:
-            if self.connection is None or not self.connection.open:
-                self.connection = pymysql.connect(
-                    host=self.db_config['host'],
-                    port=int(self.db_config.get('port', 3306)),
-                    user=self.db_config['user'],
-                    password=self.db_config['password'],
-                    database=self.db_config['database'],
-                    charset='utf8mb4',
-                    autocommit=False
-                )
-            return self.connection
-        except Exception as e:
-            logger.error(f"❌ Failed to connect to database: {e}")
+            return self.pool.get_connection()
+        except Error as e:
+            logger.error(f"❌ Failed to get connection from pool: {e}")
             raise
     
     def test_connection(self) -> bool:
@@ -56,11 +56,12 @@ class MySQLConnector:
             cursor.execute("SELECT 1")
             result = cursor.fetchone()
             cursor.close()
+            conn.close()
             
             logger.info("✅ Database connection test successful")
             return True
             
-        except Exception as e:
+        except Error as e:
             logger.error(f"❌ Database connection test failed: {e}")
             return False
     
@@ -88,13 +89,14 @@ class MySQLConnector:
                 if statement and not statement.startswith('--'):
                     try:
                         cursor.execute(statement)
-                    except Exception as e:
+                    except Error as e:
                         # Ignore DROP TABLE errors
                         if 'DROP TABLE' not in statement:
                             logger.warning(f"⚠️ SQL warning: {e}")
             
             conn.commit()
             cursor.close()
+            conn.close()
             
             logger.info("✅ Database tables created successfully")
             
@@ -104,7 +106,7 @@ class MySQLConnector:
     
     def insert_articles(self, df: pd.DataFrame, batch_size: int = 100) -> int:
         """
-        Insert articles into database with detailed error handling
+        Insert articles into database
         
         Args:
             df: DataFrame with articles
@@ -145,7 +147,6 @@ class MySQLConnector:
         
         inserted = 0
         failed = 0
-        failed_details = []
         
         try:
             conn = self.get_connection()
@@ -155,82 +156,39 @@ class MySQLConnector:
             for i in range(0, len(df), batch_size):
                 batch = df.iloc[i:i+batch_size]
                 
-                for idx, row in batch.iterrows():
+                for _, row in batch.iterrows():
                     try:
                         # Prepare data tuple
                         data = self._prepare_row_data(row)
                         cursor.execute(insert_query, data)
                         inserted += 1
                         
-                    except Exception as e:
+                    except Error as e:
                         failed += 1
-                        error_msg = str(e)
-                        event_id = row.get('GlobalEventID', 'N/A')
-                        
-                        # Log détaillé pour débug
-                        logger.error(f"❌ Failed to insert event {event_id}")
-                        logger.error(f"   Error: {error_msg}")
-                        
-                        # Diagnostiquer le problème
-                        if "Data too long" in error_msg:
-                            # Trouver quelle colonne est trop longue
-                            for col in ['article_title', 'article_content', 'actor1_name', 'actor2_name']:
-                                if col in row and pd.notna(row[col]):
-                                    length = len(str(row[col]))
-                                    logger.error(f"   {col} length: {length} chars")
-                        
-                        elif "Incorrect" in error_msg or "invalid" in error_msg.lower():
-                            # Problème de type de données
-                            logger.error(f"   Day: {row.get('Day')}, DATEADDED: {row.get('DATEADDED')}")
-                        
-                        elif "cannot be null" in error_msg.lower():
-                            # Champ NULL non autorisé
-                            logger.error(f"   Null fields detected")
-                            for field in ['GlobalEventID', 'Day', 'DATEADDED']:
-                                if pd.isna(row.get(field)):
-                                    logger.error(f"   {field} is NULL!")
-                        
-                        # Sauvegarder pour rapport
-                        failed_details.append({
-                            'event_id': event_id,
-                            'error': error_msg[:200]
-                        })
+                        logger.debug(f"Failed to insert event {row.get('GlobalEventID')}: {e}")
                 
                 # Commit batch
-                try:
-                    conn.commit()
-                except Exception as e:
-                    logger.error(f"❌ Failed to commit batch: {e}")
-                    conn.rollback()
+                conn.commit()
                 
                 if (i + batch_size) % 1000 == 0:
                     logger.info(f"   Inserted {inserted} / {len(df)} articles...")
             
             cursor.close()
+            conn.close()
             
-            # Rapport final
-            if inserted > 0:
-                logger.info(f"✅ Inserted {inserted} articles successfully")
-            
+            logger.info(f"✅ Inserted {inserted} articles successfully")
             if failed > 0:
                 logger.warning(f"⚠️ Failed to insert {failed} articles")
-                
-                # Afficher les 3 premières erreurs
-                for detail in failed_details[:3]:
-                    logger.warning(f"   Event {detail['event_id']}: {detail['error']}")
-                
-                if len(failed_details) > 3:
-                    logger.warning(f"   ... and {len(failed_details) - 3} more errors")
             
             return inserted
             
         except Exception as e:
-            logger.error(f"❌ Critical error during insertion: {e}")
+            logger.error(f"❌ Failed to insert articles: {e}")
             raise
     
     def _prepare_row_data(self, row: pd.Series) -> tuple:
         """
-        Prepare row data for insertion with validation
+        Prepare row data for insertion
         
         Args:
             row: DataFrame row
@@ -238,55 +196,42 @@ class MySQLConnector:
         Returns:
             Tuple of values for SQL insert
         """
-        # 1. GlobalEventID (OBLIGATOIRE)
-        global_event_id = row.get('GlobalEventID')
-        if pd.isna(global_event_id):
-            raise ValueError("GlobalEventID cannot be NULL")
-        global_event_id = int(global_event_id)
-        
-        # 2. Convert Day
+        # Convert Day to date format
         day_str = str(row.get('Day', ''))
-        if len(day_str) == 8 and day_str.isdigit():
+        if len(day_str) == 8:
             day = datetime.strptime(day_str, '%Y%m%d').date()
         else:
-            logger.warning(f"Invalid Day format: {day_str}")
             day = None
         
-        # 3. Convert DATEADDED
+        # Convert DATEADDED to datetime
         dateadded_str = str(row.get('DATEADDED', ''))
-        if len(dateadded_str) == 14 and dateadded_str.isdigit():
+        if len(dateadded_str) == 14:
             dateadded = datetime.strptime(dateadded_str, '%Y%m%d%H%M%S')
         else:
-            logger.warning(f"Invalid DATEADDED format: {dateadded_str}")
             dateadded = None
         
         return (
-            # Identifiants (5)
-            global_event_id,
+            int(row.get('GlobalEventID', 0)),
             day,
             int(row.get('MonthYear', 0)) if pd.notna(row.get('MonthYear')) else None,
             int(row.get('Year', 0)) if pd.notna(row.get('Year')) else None,
             dateadded,
             
-            # Acteurs (4)
             str(row.get('Actor1Name', ''))[:500] if pd.notna(row.get('Actor1Name')) else None,
             str(row.get('Actor1CountryCode', ''))[:3] if pd.notna(row.get('Actor1CountryCode')) else None,
             str(row.get('Actor2Name', ''))[:500] if pd.notna(row.get('Actor2Name')) else None,
             str(row.get('Actor2CountryCode', ''))[:3] if pd.notna(row.get('Actor2CountryCode')) else None,
             
-            # Événement (4)
             str(row.get('EventCode', ''))[:10] if pd.notna(row.get('EventCode')) else None,
             str(row.get('EventRootCode', ''))[:2] if pd.notna(row.get('EventRootCode')) else None,
             int(row.get('QuadClass', 0)) if pd.notna(row.get('QuadClass')) else None,
             float(row.get('GoldsteinScale', 0)) if pd.notna(row.get('GoldsteinScale')) else None,
             
-            # Métriques GDELT (4)
             int(row.get('NumMentions', 0)) if pd.notna(row.get('NumMentions')) else 0,
             int(row.get('NumSources', 0)) if pd.notna(row.get('NumSources')) else 0,
             int(row.get('NumArticles', 0)) if pd.notna(row.get('NumArticles')) else 0,
             float(row.get('AvgTone', 0)) if pd.notna(row.get('AvgTone')) else None,
             
-            # Géographie (6)
             str(row.get('Actor1Geo_CountryCode', ''))[:3] if pd.notna(row.get('Actor1Geo_CountryCode')) else None,
             str(row.get('Actor2Geo_CountryCode', ''))[:3] if pd.notna(row.get('Actor2Geo_CountryCode')) else None,
             str(row.get('ActionGeo_CountryCode', ''))[:3] if pd.notna(row.get('ActionGeo_CountryCode')) else None,
@@ -294,60 +239,20 @@ class MySQLConnector:
             float(row.get('ActionGeo_Lat', 0)) if pd.notna(row.get('ActionGeo_Lat')) else None,
             float(row.get('ActionGeo_Long', 0)) if pd.notna(row.get('ActionGeo_Long')) else None,
             
-            # Article (6)
-            str(row.get('SOURCEURL', ''))[:2000] if pd.notna(row.get('SOURCEURL')) else None,  # Limiter URL
-            str(row.get('article_title', ''))[:2000] if pd.notna(row.get('article_title')) else None,  # Limiter titre
+            str(row.get('SOURCEURL', '')) if pd.notna(row.get('SOURCEURL')) else None,
+            str(row.get('article_title', '')) if pd.notna(row.get('article_title')) else None,
             str(row.get('article_content', '')) if pd.notna(row.get('article_content')) else None,
             str(row.get('article_language', ''))[:5] if pd.notna(row.get('article_language')) else None,
             str(row.get('article_author', ''))[:255] if pd.notna(row.get('article_author')) else None,
             row.get('article_publish_date') if pd.notna(row.get('article_publish_date')) else None,
             
-            # Scoring (3)
             int(row.get('llm_score', 0)) if pd.notna(row.get('llm_score')) else None,
-            str(row.get('llm_justification', ''))[:2000] if pd.notna(row.get('llm_justification')) else None,  # Limiter
+            str(row.get('llm_justification', '')) if pd.notna(row.get('llm_justification')) else None,
             float(row.get('final_score', 0)) if pd.notna(row.get('final_score')) else None,
             
-            # Features (2)
             bool(row.get('is_oil_country', False)),
-            str(row.get('keyword_matches', ''))[:1000] if pd.notna(row.get('keyword_matches')) else None
+            str(row.get('keyword_matches', '')) if pd.notna(row.get('keyword_matches')) else None
         )
-    
-    def validate_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Validate DataFrame before insertion
-        
-        Args:
-            df: DataFrame to validate
-            
-        Returns:
-            Validated DataFrame
-        """
-        logger.info("🔍 Validating DataFrame...")
-        
-        # Colonnes obligatoires
-        required_cols = ['GlobalEventID', 'Day', 'DATEADDED']
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-        
-        # Vérifier les valeurs NULL
-        null_count = df[required_cols].isnull().sum()
-        for col, count in null_count.items():
-            if count > 0:
-                logger.warning(f"⚠️ {col} has {count} NULL values")
-        
-        # Supprimer les lignes avec GlobalEventID NULL
-        initial_len = len(df)
-        df = df[df['GlobalEventID'].notna()].copy()
-        removed = initial_len - len(df)
-        
-        if removed > 0:
-            logger.warning(f"⚠️ Removed {removed} rows with NULL GlobalEventID")
-        
-        logger.info(f"✅ Validation complete: {len(df)} valid rows")
-        
-        return df
     
     def get_articles(self, limit: int = 100, 
                     min_score: float = 50,
@@ -373,6 +278,7 @@ class MySQLConnector:
         try:
             conn = self.get_connection()
             df = pd.read_sql(query, conn, params=(min_score, limit))
+            conn.close()
             
             logger.info(f"✅ Retrieved {len(df)} articles from database")
             return df
@@ -422,6 +328,7 @@ class MySQLConnector:
             cursor.execute(query, data)
             conn.commit()
             cursor.close()
+            conn.close()
             
             logger.info(f"✅ Updated daily stats for {stats.get('date')}")
             
@@ -447,13 +354,8 @@ class MySQLConnector:
         try:
             conn = self.get_connection()
             df = pd.read_sql(query, conn, params=(days,))
+            conn.close()
             return df
         except Exception as e:
             logger.error(f"❌ Failed to get stats: {e}")
             return pd.DataFrame()
-    
-    def close(self):
-        """Close database connection"""
-        if self.connection and self.connection.open:
-            self.connection.close()
-            logger.info("✅ Database connection closed")

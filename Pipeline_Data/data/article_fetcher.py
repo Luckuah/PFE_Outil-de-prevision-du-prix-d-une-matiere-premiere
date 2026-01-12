@@ -151,7 +151,7 @@ class ArticleFetcher:
         
         return result
     
-    def fetch_articles_batch(self, df: pd.DataFrame, 
+    def fetch_articles_batch2(self, df: pd.DataFrame, 
                            url_column: str = 'SOURCEURL',
                            delay: float = 0.5,
                            max_articles: int = None) -> pd.DataFrame:
@@ -227,6 +227,119 @@ class ArticleFetcher:
         logger.info(f"❌ Failed to fetch {failed_count} articles ({failed_count/len(df)*100:.1f}%)")
         
         return df_success
+    
+    def fetch_articles_batch(self, df: pd.DataFrame, 
+                         url_column: str = 'SOURCEURL',
+                         delay: float = 0.5,
+                         max_articles: int = None) -> pd.DataFrame:
+        
+    
+        logger.info(f"📰 Fetching articles for {len(df)} events...")
+        
+        # Create a working copy
+        df_work = df.copy()
+        
+        # Limit for testing
+        if max_articles and len(df_work) > max_articles:
+            df_work = df_work.head(max_articles)
+            logger.info(f"⚠️ Limited to {max_articles} articles for testing")
+        
+        # Reset index to avoid any index-related issues
+        df_work = df_work.reset_index(drop=True)
+        
+        # Collect results with ALL original columns preserved
+        results = []
+        success_count = 0
+        failed_count = 0
+        
+        # Progress bar
+        pbar = tqdm(total=len(df_work), desc="Fetching articles")
+        
+        for idx, row in df_work.iterrows():
+            url = row.get(url_column, '')
+            
+            # Skip if URL is missing
+            if not url or pd.isna(url):
+                failed_count += 1
+                pbar.update(1)
+                pbar.set_postfix({
+                    'success': success_count,
+                    'failed': failed_count,
+                    'rate': f"{success_count/(success_count+failed_count)*100:.1f}%" if (success_count+failed_count) > 0 else "0.0%"
+                })
+                continue
+            
+            # Fetch article
+            article_data = self.fetch_article(url)
+            
+            # If successful, combine GDELT data + article data
+            if article_data.get('success', False):
+                # Start with ALL original GDELT columns
+                combined_row = row.to_dict()
+                
+                # Add article columns
+                combined_row['article_title'] = article_data.get('title', '')
+                combined_row['article_content'] = article_data.get('content', '')
+                combined_row['article_language'] = article_data.get('language', '')
+                combined_row['article_author'] = article_data.get('author', '')
+                combined_row['article_publish_date'] = article_data.get('publish_date', None)
+                combined_row['fetch_success'] = True
+                combined_row['content_length'] = len(article_data.get('content', ''))
+                
+                results.append(combined_row)
+                success_count += 1
+            else:
+                failed_count += 1
+                logger.debug(f"Failed to fetch: {url[:50]}... - {article_data.get('error', 'Unknown error')}")
+            
+            # Update progress
+            pbar.update(1)
+            pbar.set_postfix({
+                'success': success_count,
+                'failed': failed_count,
+                'rate': f"{success_count/(success_count+failed_count)*100:.1f}%" if (success_count+failed_count) > 0 else "0.0%"
+            })
+            
+            # Delay to avoid rate limiting
+            time.sleep(delay)
+        
+        pbar.close()
+        
+        # Create DataFrame from results
+        if not results:
+            logger.warning("⚠️ No articles fetched successfully")
+            return pd.DataFrame()
+        
+        df_success = pd.DataFrame(results)
+        
+        # Verify critical GDELT columns are preserved
+        critical_cols = ['GlobalEventID', 'Day', 'DATEADDED']
+        missing_cols = [col for col in critical_cols if col not in df_success.columns]
+        
+        if missing_cols:
+            logger.error(f"❌ CRITICAL: Missing columns after fetch: {missing_cols}")
+            logger.error(f"   Available columns: {df_success.columns.tolist()}")
+            
+            # Try to diagnose
+            logger.error(f"   Original df columns: {df.columns.tolist()[:20]}")
+            logger.error(f"   Sample original row keys: {list(df.iloc[0].to_dict().keys())[:20] if len(df) > 0 else 'N/A'}")
+        else:
+            logger.info(f"✅ All critical GDELT columns preserved")
+            
+            # Verify no NULLs in critical columns
+            for col in critical_cols:
+                null_count = df_success[col].isnull().sum()
+                if null_count > 0:
+                    logger.warning(f"⚠️ Column {col} has {null_count} NULL values")
+        
+        logger.info(f"✅ Successfully fetched {success_count} articles ({success_count/len(df_work)*100:.1f}%)")
+        logger.info(f"❌ Failed to fetch {failed_count} articles ({failed_count/len(df_work)*100:.1f}%)")
+        
+        return df_success
+    
+
+
+    
     
     def filter_by_language(self, df: pd.DataFrame, 
                           languages: list = ['en', 'fr', 'de', 'es']) -> pd.DataFrame:

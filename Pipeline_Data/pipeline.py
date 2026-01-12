@@ -11,7 +11,7 @@ from data.filter import GDELTFilter
 from data.article_fetcher import ArticleFetcher
 from models.trieur_agent import TrieurAgent
 from models.rag_agent import RAGAgent
-from database.mysql_connector import MySQLConnector
+from Pipeline_Data.database.mysql_connector2 import MySQLConnector
 from utils.logger import get_logger, PipelineLogger, setup_logger
 from utils.config_loader import get_config
 
@@ -107,7 +107,7 @@ class GDELTPipeline:
                     df_filtered,
                     url_column='SOURCEURL',
                     delay=0.5,
-                    max_articles=None  # No limit
+                    max_articles=5  # No limit
                 )
                 stats['articles_fetched'] = len(df_with_articles)
                 
@@ -136,9 +136,12 @@ class GDELTPipeline:
                 
                 # Score
                 df_scored = trieur.score_articles_batch(df_with_articles)
-                
+                print("--------------------------------------------------------------------")
+                print (df_scored)
+                time.sleep(2)
                 # Compute final score
-                df_scored = trieur.compute_final_score(df_scored)
+                #FONCTION DE MERDE CAR SCORE ARTICLE BATCH LE FAIT DEJA LE FINAL SCORE ENCULER
+                #df_scored = trieur.compute_final_score(df_scored)
                 
                 # Filter top articles
                 df_top = trieur.filter_top_articles(df_scored)
