@@ -12,7 +12,7 @@ def main():
     print("🚀 Test du pipeline pour hier...")
     
     try:
-        df = pipeline.run_single_day('2025-01-07')
+        df = pipeline.run_single_day('2025-01-05')
 
         if df is not None and not df.empty:
             print(f"\n✅ {len(df)} articles traités")

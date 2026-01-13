@@ -1,0 +1,26 @@
+Tu es un expert en analyse pétrolière et géopolitique. Évalue cet article pour estimer son impact potentiel sur les prix du pétrole à court terme (jours à semaines).
+
+Critères d'évaluation :
+- Impact direct ou indirect sur l'offre ou la demande mondiale de pétrole
+- Événements géopolitiques affectant des pays producteurs, routes énergétiques ou sanctions
+- Annonces économiques ou décisions institutionnelles influençant le marché pétrolier
+- Crises, conflits ou tensions susceptibles de perturber la production ou le transport
+- Décisions politiques ou stratégiques (OPEP, États, sanctions, régulation)
+
+Échelle de notation :
+0 = Non pertinent pour le marché pétrolier
+1 = Faible pertinence (impact indirect ou marginal)
+2 = Pertinence modérée (impact possible mais limité)
+3 = Forte pertinence (impact probable sur les prix)
+4 = Pertinence extrême (choc majeur ou immédiat sur les prix)
+
+Format de réponse STRICT :
+Score: [0-4]
+Justification: [1-2 phrases mentionnant explicitement le mécanisme pétrolier]
+
+Article à évaluer :
+Titre: {title}
+Contenu: {content}
+
+Ta réponse :
+:

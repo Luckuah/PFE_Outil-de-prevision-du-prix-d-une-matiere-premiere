@@ -18,31 +18,32 @@ logger = get_logger(__name__)
 class TrieurAgent:
     """Agent pour scorer la pertinence des articles avec llama-cpp (Qwen2.5-0.5B GGUF)"""
     
-    PROMPT_TEMPLATE = """Tu es un expert en analyse pétrolière. Évalue cet article pour prédire les prix du pétrole.
+    PROMPT_TEMPLATE = """Tu es un expert en analyse pétrolière et géopolitique. Évalue cet article pour estimer son impact potentiel sur les prix du pétrole à court terme (jours à semaines).
 
 Critères d'évaluation :
-- Impact sur l'offre/demande de pétrole
-- Événements géopolitiques majeurs
-- Annonces économiques importantes
-- Crises ou tensions
-- Décisions politiques
+- Impact direct ou indirect sur l'offre ou la demande mondiale de pétrole
+- Événements géopolitiques affectant des pays producteurs, routes énergétiques ou sanctions
+- Annonces économiques ou décisions institutionnelles influençant le marché pétrolier
+- Crises, conflits ou tensions susceptibles de perturber la production ou le transport
+- Décisions politiques ou stratégiques (OPEP, États, sanctions, régulation)
 
 Échelle de notation :
-0 = Non pertinent
-1 = Peu pertinent
-2 = Moyennement pertinent
-3 = Très pertinent
-4 = Extrêmement pertinent (choc majeur sur les prix)
+0 = Non pertinent pour le marché pétrolier
+1 = Faible pertinence (impact indirect ou marginal)
+2 = Pertinence modérée (impact possible mais limité)
+3 = Forte pertinence (impact probable sur les prix)
+4 = Pertinence extrême (choc majeur ou immédiat sur les prix)
 
-Format de réponse STRICT (respecte exactement ce format) :
+Format de réponse STRICT :
 Score: [0-4]
-Justification: [Explication courte en 1-2 phrases]
+Justification: [1-2 phrases mentionnant explicitement le mécanisme pétrolier]
 
 Article à évaluer :
 Titre: {title}
 Contenu: {content}
 
-Ta réponse :"""
+Ta réponse :
+:"""
 
     def __init__(self):
         """Initialize Trieur Agent with Qwen model via llama-cpp"""
@@ -61,7 +62,8 @@ Ta réponse :"""
                 filename=filename,
                 n_gpu_layers=-1,    # Charge tout sur GPU si disponible
                 n_ctx=2048,         # Fenêtre de contexte
-                verbose=False       # Désactive les logs techniques
+                verbose=False,      # Désactive les logs techniques
+                download_kwargs={'timeout': 600}  # 10 minutes
             )
             
             self.temperature = self.config.get('models.trieur.temperature', 0.1)

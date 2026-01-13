@@ -10,7 +10,7 @@ from data.gdelt_fetcher import GDELTFetcher
 from data.filter import GDELTFilter
 from data.article_fetcher import ArticleFetcher
 from models.trieur_agent import TrieurAgent
-from models.rag_agent import RAGAgent
+from Pipeline_Data.models.rag_agent import RAGAgent
 from Pipeline_Data.database.mysql_connector2 import MySQLConnector
 from utils.logger import get_logger, PipelineLogger, setup_logger
 from utils.config_loader import get_config
@@ -101,13 +101,14 @@ class GDELTPipeline:
                 return pd.DataFrame()
         
         # Step 3: Fetch full articles (optional)
+        #------------------------------------------------------------------------------
         if fetch_articles:
             with PipelineLogger(logger, "Step 3: Fetch full articles"):
                 df_with_articles = self.article_fetcher.fetch_articles_batch(
                     df_filtered,
                     url_column='SOURCEURL',
                     delay=0.5,
-                    max_articles=5  # No limit
+                    max_articles=None  # No limit
                 )
                 stats['articles_fetched'] = len(df_with_articles)
                 
