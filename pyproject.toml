@@ -32,7 +32,9 @@ dependencies = [
     "lxml[html-clean] (>=6.0.2,<7.0.0)",
     "faiss-cpu (>=1.13.2,<2.0.0)",
     "sentence-transformers (>=5.2.0,<6.0.0)",
-    "pymysql (>=1.1.2,<2.0.0)"
+    "pymysql (>=1.1.2,<2.0.0)",
+    "fastapi (>=0.128.0,<0.129.0)",
+    "uvicorn (>=0.40.0,<0.41.0)"
 ]
 
 [build-system]

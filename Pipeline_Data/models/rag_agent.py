@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import List, Tuple
 from sentence_transformers import SentenceTransformer
 from llama_cpp import Llama
+import sys
+
+sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.logger import get_logger
 from utils.config_loader import get_config
@@ -33,8 +36,8 @@ class RAGAgent:
         self.dimension = self.config.get('models.embeddings.dimension', 768)
         
         # 2. LLM for Generation (Qwen via llama-cpp)
-        repo_id = self.config.get('models.rag.repo_id', "Qwen/Qwen2.5-0.5B-Instruct-GGUF")
-        filename = self.config.get('models.rag.filename', "*q8_0.gguf")
+        repo_id = self.config.get('models.rag.repo_id', "Qwen/Qwen2.5-3B-Instruct-GGUF")
+        filename = self.config.get('models.rag.filename', "*q4_k_m.gguf") # Quantisation 4-bit
         n_ctx = self.config.get('models.rag.n_ctx', 4096)
         
         logger.info(f"🤖 Loading LLM for RAG: {repo_id}")
@@ -216,32 +219,56 @@ class RAGAgent:
         
         # 2. Construction du contexte
         context_text = "\n\n".join([
-            f"Document {i+1} (Title: {row.get('article_title', 'N/A')}): "
-            f"{row.get('article_content', '')[:600]}"
-            for i, (_, row) in enumerate(docs.iterrows())
+        f"Document {i+1}:\n"
+        f"Title: {row.get('article_title', 'N/A')}\n"
+        f"URL: {row.get('source_url', 'N/A')}\n"  # <--- On ajoute l'URL ici
+        f"Content: {row.get('article_content', '')[:800]}" # Augmenté un peu pour plus de contexte
+        for i, (_, row) in enumerate(docs.iterrows())
         ])
         
         # 3. Generation - Réponse par le LLM
         prompt = f"""
-        You are an expert oil market and geopolitics analyst.
 
-        RULES:
-        - Use ONLY the information from the CONTEXT below.
-        - Do NOT rely on prior knowledge.
-        - If the answer is not explicitly supported by the context, say:
-        "I don't know based on the provided documents."
+            You are an expert oil market and geopolitics analyst.
 
-        TASK:
-        Answer the question focusing on oil supply, demand, geopolitics, sanctions,
-        production, transport, OPEC decisions, or market expectations. 
+            RULES:
+            - Use ONLY the information from the CONTEXT below.
+            - Do NOT rely on prior knowledge for god sake.
+            - Do NOT invent titles, sources, or facts.
+            - If the answer is not explicitly supported by the context, respond exactly with:
+            "I don't know based on the provided documents."
 
-        CONTEXT:
-        {context_text}
+            TASK:
+            Answer the question focusing on:
+            - oil supply and demand
+            - geopolitics and sanctions
+            - production and transport
+            - OPEC decisions
+            - market expectations
 
-        QUESTION:
-        {query}
+            CONTEXT:
+            {context_text}
 
-        ANSWER (cite document ids, urls  when relevant from your {context_text} ):"""
+            QUESTION:
+            {query}
+
+            OUTPUT REQUIREMENTS:
+            - Your answer MUST include:
+            - full_tittle
+            - These fields must come from the CONTEXT.
+            - If multiple documents are relevant, list them all.
+            - If no document supports the answer, use the fallback response rule above.
+
+            OUTPUT FORMAT:
+            Answer:
+            <clear and concise analytical answer>
+
+            Sources:
+            - article_title: "<title from context>"
+            source_url: "<url from context>"
+            
+            """
+
         
         logger.info("🤖 Generating answer with LLM...")
         

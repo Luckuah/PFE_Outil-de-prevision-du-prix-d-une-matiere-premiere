@@ -15,6 +15,9 @@ from utils.config_loader import get_config
 logger = get_logger(__name__)
 
 
+def load_prompt(file_path: str) -> str:
+    return Path(file_path).read_text(encoding="utf-8")
+
 class TrieurAgent:
     """Agent pour scorer la pertinence des articles avec llama-cpp (Qwen2.5-0.5B GGUF)"""
     
