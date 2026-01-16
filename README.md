@@ -32,4 +32,8 @@ poetry run streamlit run affichage.py
 ```
 
 
+To run the pipeline data:
 
+```bash
+poetry run python Pipeline_Data/le_test.py
+```
