@@ -20,8 +20,6 @@ class LSTMPrediction(BaseModel):
 
 class AnalysisRequest(BaseModel):
     user_query: str
-    lstm_prediction: float
-    lstm_prediction_date: str
 
 
 class AnalysisResponse(BaseModel):

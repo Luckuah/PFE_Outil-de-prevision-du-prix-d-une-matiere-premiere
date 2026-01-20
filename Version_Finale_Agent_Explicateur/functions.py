@@ -173,7 +173,7 @@ def aggregate_market_data() -> dict:
 def analyze_market(
     user_query: str,
     documents: str,
-    lstm_prediction: float,
+    lstm_prediction: list[float],
     lstm_prediction_date: str
 ) -> dict:
     """
@@ -195,7 +195,7 @@ Pour l'explication géopolitique, oublie toute ta based de connaissance , et foc
 
 Réponds TOUJOURS en JSON avec ce format exact:
 {
-    "predicted_price_10d": <float>,
+    "predicted_price_10d": List<float>,
     "confidence": "HIGH" | "MEDIUM" | "LOW",
     "explanation": "<explication détaillée en français>",
     "key_factors": ["facteur1", "facteur2", "facteur3"]
@@ -210,7 +210,7 @@ Réponds TOUJOURS en JSON avec ce format exact:
 {json.dumps(market_data, indent=2, default=str)}
 
 ## Prédiction du modèle LSTM:
-- Prix prédit: ${lstm_prediction:.2f}
+- Prix prédit: ${lstm_prediction}
 - Date de prédiction: {lstm_prediction_date}
 
 ## Documents/Articles pertinents fournis par l'agent de recherche:

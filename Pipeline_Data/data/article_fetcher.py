@@ -1,6 +1,4 @@
-"""
-Article content fetcher for GDELT URLs
-"""
+
 import pandas as pd
 import requests
 from newspaper import Article
@@ -21,13 +19,6 @@ class ArticleFetcher:
     """Fetches and extracts article content from URLs"""
     
     def __init__(self, timeout: int = 10, max_retries: int = 2):
-        """
-        Initialize article fetcher
-        
-        Args:
-            timeout: Request timeout in seconds
-            max_retries: Maximum number of retries per URL
-        """
         self.timeout = timeout
         self.max_retries = max_retries
         
@@ -39,19 +30,9 @@ class ArticleFetcher:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1'
         }
-        
-        logger.info(f"✅ Article Fetcher initialized (timeout={timeout}s)")
+        logger.info(f"Article Fetcher initialized (timeout={timeout}s)")
     
     def fetch_article(self, url: str) -> Dict[str, any]:
-        """
-        Fetch and extract article content from URL
-        
-        Args:
-            url: Article URL
-            
-        Returns:
-            Dictionary with article data
-        """
         result = {
             'title': None,
             'content': None,
@@ -65,7 +46,6 @@ class ArticleFetcher:
         if pd.isna(url) or not url:
             result['error'] = 'Empty URL'
             return result
-        
         # Try with newspaper3k first
         try:
             article = Article(url, language='en')
@@ -86,18 +66,14 @@ class ArticleFetcher:
             
             result['success'] = True
             return result
-            
         except Exception as e:
             logger.debug(f"newspaper3k failed for {url[:50]}...: {e}")
         
-        # Fallback to BeautifulSoup
         try:
             response = requests.get(url, headers=self.headers, timeout=self.timeout)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'lxml')
-            
-            # Extract title
             title_tag = soup.find('title')
             if title_tag:
                 result['title'] = title_tag.get_text().strip()
@@ -151,82 +127,6 @@ class ArticleFetcher:
         
         return result
     
-    def fetch_articles_batch2(self, df: pd.DataFrame, 
-                           url_column: str = 'SOURCEURL',
-                           delay: float = 0.5,
-                           max_articles: int = None) -> pd.DataFrame:
-        """
-        Fetch articles for a batch of URLs
-        
-        Args:
-            df: DataFrame with URLs
-            url_column: Name of column containing URLs
-            delay: Delay between requests in seconds
-            max_articles: Maximum number of articles to fetch (for testing)
-            
-        Returns:
-            DataFrame with article content added
-        """
-        logger.info(f"📰 Fetching articles for {len(df)} events...")
-        
-        # Limit for testing
-        if max_articles and len(df) > max_articles:
-            df = df.head(max_articles)
-            logger.info(f"⚠️ Limited to {max_articles} articles for testing")
-        
-        # Initialize new columns
-        df['article_title'] = None
-        df['article_content'] = None
-        df['article_language'] = None
-        df['article_author'] = None
-        df['article_publish_date'] = None
-        df['fetch_success'] = False
-        
-        success_count = 0
-        failed_count = 0
-        
-        # Progress bar
-        pbar = tqdm(total=len(df), desc="Fetching articles")
-        
-        for idx, row in df.iterrows():
-            url = row[url_column]
-            
-            # Fetch article
-            article_data = self.fetch_article(url)
-            
-            # Update DataFrame
-            if article_data['success']:
-                df.at[idx, 'article_title'] = article_data['title']
-                df.at[idx, 'article_content'] = article_data['content']
-                df.at[idx, 'article_language'] = article_data['language']
-                df.at[idx, 'article_author'] = article_data['author']
-                df.at[idx, 'article_publish_date'] = article_data['publish_date']
-                df.at[idx, 'fetch_success'] = True
-                success_count += 1
-            else:
-                failed_count += 1
-                logger.debug(f"Failed to fetch: {url[:50]}... - {article_data['error']}")
-            
-            # Update progress
-            pbar.update(1)
-            pbar.set_postfix({
-                'success': success_count,
-                'failed': failed_count,
-                'rate': f"{success_count/(success_count+failed_count)*100:.1f}%"
-            })
-            
-            # Delay to avoid rate limiting
-            time.sleep(delay)
-        
-        pbar.close()
-        
-        # Filter for successful fetches
-        df_success = df[df['fetch_success'] == True].copy()
-        
-        logger.info(f"✅ Successfully fetched {success_count} articles ({success_count/len(df)*100:.1f}%)")
-        logger.info(f"❌ Failed to fetch {failed_count} articles ({failed_count/len(df)*100:.1f}%)")
-        
-        return df_success
     
     def fetch_articles_batch(self, df: pd.DataFrame, 
                          url_column: str = 'SOURCEURL',
@@ -234,17 +134,15 @@ class ArticleFetcher:
                          max_articles: int = None) -> pd.DataFrame:
         
     
-        logger.info(f"📰 Fetching articles for {len(df)} events...")
+        logger.info(f" Fetching articles for {len(df)} events...")
         
         # Create a working copy
         df_work = df.copy()
         
-        # Limit for testing
+        
         if max_articles and len(df_work) > max_articles:
             df_work = df_work.head(max_articles)
-            logger.info(f"⚠️ Limited to {max_articles} articles for testing")
-        
-        # Reset index to avoid any index-related issues
+            logger.info(f" Limited to {max_articles} articles for testing")
         df_work = df_work.reset_index(drop=True)
         
         # Collect results with ALL original columns preserved
@@ -317,14 +215,14 @@ class ArticleFetcher:
         missing_cols = [col for col in critical_cols if col not in df_success.columns]
         
         if missing_cols:
-            logger.error(f"❌ CRITICAL: Missing columns after fetch: {missing_cols}")
+            logger.error(f" CRITICAL: Missing columns after fetch: {missing_cols}")
             logger.error(f"   Available columns: {df_success.columns.tolist()}")
             
             # Try to diagnose
             logger.error(f"   Original df columns: {df.columns.tolist()[:20]}")
             logger.error(f"   Sample original row keys: {list(df.iloc[0].to_dict().keys())[:20] if len(df) > 0 else 'N/A'}")
         else:
-            logger.info(f"✅ All critical GDELT columns preserved")
+            logger.info(f"All critical GDELT columns preserved")
             
             # Verify no NULLs in critical columns
             for col in critical_cols:
@@ -332,8 +230,8 @@ class ArticleFetcher:
                 if null_count > 0:
                     logger.warning(f"⚠️ Column {col} has {null_count} NULL values")
         
-        logger.info(f"✅ Successfully fetched {success_count} articles ({success_count/len(df_work)*100:.1f}%)")
-        logger.info(f"❌ Failed to fetch {failed_count} articles ({failed_count/len(df_work)*100:.1f}%)")
+        logger.info(f"Successfully fetched {success_count} articles ({success_count/len(df_work)*100:.1f}%)")
+        logger.info(f"Failed to fetch {failed_count} articles ({failed_count/len(df_work)*100:.1f}%)")
         
         return df_success
     
@@ -343,27 +241,18 @@ class ArticleFetcher:
     
     def filter_by_language(self, df: pd.DataFrame, 
                           languages: list = ['en', 'fr', 'de', 'es']) -> pd.DataFrame:
-        """
-        Filter articles by language
-        
-        Args:
-            df: DataFrame with articles
-            languages: List of accepted language codes
-            
-        Returns:
-            Filtered DataFrame
-        """
+       
         if 'article_language' not in df.columns:
             logger.warning("⚠️ No article_language column found")
             return df
         
-        logger.info(f"🌐 Filtering articles by languages: {languages}")
+        logger.info(f" Filtering articles by languages: {languages}")
         
         initial_count = len(df)
         df_filtered = df[df['article_language'].isin(languages)].copy()
         final_count = len(df_filtered)
         
-        logger.info(f"✅ Kept {final_count}/{initial_count} articles ({final_count/initial_count*100:.1f}%)")
+        logger.info(f" Kept {final_count}/{initial_count} articles ({final_count/initial_count*100:.1f}%)")
         
         # Language distribution
         lang_dist = df_filtered['article_language'].value_counts()
@@ -374,16 +263,8 @@ class ArticleFetcher:
         return df_filtered
     
     def clean_content(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Clean article content (remove empty, too short, etc.)
         
-        Args:
-            df: DataFrame with articles
-            
-        Returns:
-            Cleaned DataFrame
-        """
-        logger.info("🧹 Cleaning article content...")
+        logger.info(" Cleaning article content...")
         
         initial_count = len(df)
         
