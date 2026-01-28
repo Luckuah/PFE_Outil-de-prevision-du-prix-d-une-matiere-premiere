@@ -622,15 +622,15 @@ if launch:
             with tab3:
                 render_sources_tab(sources)
             # ====== BLOC DEBUG TECHNIQUE (OPT.) ======
-            #with st.expander("🔧 Détails techniques (pour développeurs)", expanded=False):
-            #    st.subheader("Requête envoyée à /analyze")
-            #    st.json(payload)
-            #    st.subheader("Réponse brute de /analyze")
-            #    st.json(data)
-            #    st.code(f"Status code: {resp.status_code}")
-            #    if isinstance(lstm_input, list) and lstm_input:
-            #        st.subheader("Input LSTM (liste complète)")
-            #        st.write(lstm_input)
-            #    elif isinstance(lstm_input, (int, float)):
-            #        st.subheader("Input LSTM (scalaire)")
-            #        st.write(lstm_input)
+            with st.expander("🔧 Détails techniques (pour développeurs)", expanded=False):
+                st.subheader("Requête envoyée à /analyze")
+                st.json(payload)
+                st.subheader("Réponse brute de /analyze")
+                st.json(data)
+                st.code(f"Status code: {resp.status_code}")
+                if isinstance(lstm_input, list) and lstm_input:
+                    st.subheader("Input LSTM (liste complète)")
+                    st.write(lstm_input)
+                elif isinstance(lstm_input, (int, float)):
+                    st.subheader("Input LSTM (scalaire)")
+                    st.write(lstm_input)
