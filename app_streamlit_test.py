@@ -16,6 +16,7 @@ from model_training import load_and_predict, prepare_data, forecast_future
 
 st.set_page_config(
     page_title="Prévision du prix du pétrole",
+    page_icon="🛢️",
     layout="wide"
 )
 
@@ -58,7 +59,7 @@ def call_api(method: str, endpoint: str, json=None, timeout: int = 60):
 
         return resp
     except Exception as e:
-        st.error(f"Erreur de connexion à l'API ({url}) : {e}")
+        st.error(f"❌ Erreur de connexion à l'API ({url}) : {e}")
         return None
 
 
@@ -107,11 +108,11 @@ def get_confidence_label(conf_level: str) -> str:
         return "N/A"
     level = conf_level.upper()
     if level == "HIGH":
-        return "Élevée (HIGH)"
+        return "🟢 Élevée (HIGH)"
     if level == "MEDIUM":
-        return "Moyenne (MEDIUM)"
+        return "🟠 Moyenne (MEDIUM)"
     if level == "LOW":
-        return "Faible (LOW)"
+        return "🔴 Faible (LOW)"
     return level
 
 
@@ -123,7 +124,7 @@ def render_summary_header(preds_mean, last_spot, conf_level, timestamp: str = ""
     - Confiance
     Inclut la variation % entre spot et prévision si possible.
     """
-    st.markdown("### Synthèse rapide")
+    st.markdown("### 📌 Synthèse rapide")
 
     m1, m2, m3 = st.columns(3)
 
@@ -152,7 +153,7 @@ def render_summary_header(preds_mean, last_spot, conf_level, timestamp: str = ""
         st.metric("Confiance de l'agent", get_confidence_label(conf_level))
 
     if timestamp:
-        st.caption(f" Analysé le : `{timestamp}`")
+        st.caption(f"⏱️ Analysé le : `{timestamp}`")
 
     st.markdown("---")
 
@@ -166,7 +167,7 @@ def render_prediction_tab(preds_array, last_spot):
         st.info("Aucune prévision exploitable trouvée dans `predicted_price_10d`.")
         return
 
-    st.subheader(" Prévision sur 10 jours")
+    st.subheader("📈 Prévision sur 10 jours")
 
     jours = [f"J+{i+1}" for i in range(len(preds_array))]
     df_preds = pd.DataFrame({
@@ -182,7 +183,7 @@ def render_prediction_tab(preds_array, last_spot):
             "Les points J+1..J+10 représentent la trajectoire prévue du modèle."
         )
 
-    with st.expander(" Détail des valeurs prédites"):
+    with st.expander("📋 Détail des valeurs prédites"):
         st.table(df_preds.style.format("{:.2f}"))
 
 
@@ -206,11 +207,11 @@ def render_timeframe_card(tf_name: str, tf_data: dict):
     trend = tf_data.get("trend")
 
     if trend == "UP":
-        trend_label = " Haussière"
+        trend_label = "↗️ Haussière"
     elif trend == "DOWN":
-        trend_label = " Baissière"
+        trend_label = "↘️ Baissière"
     else:
-        trend_label = " Neutre"
+        trend_label = "➖ Neutre"
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -270,17 +271,17 @@ def render_explanation_and_factors(explanation: str, key_factors):
     col_left, col_right = st.columns([2, 1])
 
     with col_left:
-        st.subheader(" Explication de l'agent")
+        st.subheader("📝 Explication de l'agent")
         if explanation:
             st.write(explanation)
         else:
             st.info("Aucune explication fournie dans la réponse.")
 
     with col_right:
-        st.subheader(" Facteurs clés")
+        st.subheader("📌 Facteurs clés")
         if isinstance(key_factors, list) and key_factors:
             for f in key_factors:
-                st.markdown(f"-  {f}")
+                st.markdown(f"- 🏷️ {f}")
         else:
             st.write("_Aucun facteur clé explicite._")
 
@@ -341,7 +342,7 @@ def render_sources_tab(sources):
     """
     Affiche la liste des sources dans l'onglet "Sources".
     """
-    st.subheader(" Articles & sources utilisées")
+    st.subheader("📰 Articles & sources utilisées")
 
     if not isinstance(sources, list) or not sources:
         st.info("Aucune source fournie dans la réponse.")
@@ -405,7 +406,7 @@ def afficher_graphique_futur(df_historique, resultats):
 # =========================
 
 with st.sidebar:
-    st.title("Pétrole – Dashboard")
+    st.title("🛢️ Pétrole – Dashboard")
     st.caption("Interface Streamlit connectée à FastAPI")
 
     st.markdown("---")
@@ -415,9 +416,9 @@ with st.sidebar:
         if resp is not None:
             try:
                 resp.raise_for_status()
-                st.success(f" /health OK : {resp.json()}")
+                st.success(f"✅ /health OK : {resp.json()}")
             except Exception as e:
-                st.error(f" /health renvoie une erreur : {e}")
+                st.error(f"❌ /health renvoie une erreur : {e}")
                 st.write(resp.text)
 
     st.markdown("---")
@@ -431,7 +432,7 @@ with st.sidebar:
 # PAGE 1 – ASSISTANT DE PRÉVISION
 # =========================
 
-st.title(" Assistant de prévision du prix du pétrole")
+st.title("🔮 Assistant de prévision du prix du pétrole")
 
 st.markdown(
     "Cette page combine : un **modèle LSTM**, des **données de marché** "
@@ -439,7 +440,7 @@ st.markdown(
     "et une explication lisible."
 )
 
-st.markdown("###  Pose ta question")
+st.markdown("### 💬 Pose ta question")
 default_question = (
     "Quelle est ta prédiction pour le prix du pétrole dans les 10 prochains jours "
     "et quels sont les principaux facteurs à surveiller ?"
@@ -499,7 +500,7 @@ if launch:
 
         # Si l'API renvoie une erreur, on reste concis, détails dans expander.
         if resp.status_code != 200:
-            st.error(" L'API a renvoyé une erreur.")
+            st.error("❌ L'API a renvoyé une erreur.")
             with st.expander("Détails techniques de l'erreur", expanded=False):
                 try:
                     st.json(resp.json())
@@ -509,7 +510,7 @@ if launch:
             st.stop()
 
         data = resp.json()
-        st.success(" Analyse terminée")
+        st.success("✅ Analyse terminée")
 
         # ====== EXTRACTION DES CHAMPS ======
 
@@ -536,11 +537,11 @@ if launch:
 
             # --------- TEXTE RAG ---------
             with left:
-                st.subheader(" Explications & Facteurs")
+                st.subheader("🧠 Explications & Facteurs")
                 render_explanation_and_factors(explanation, key_factors)
 
             with right:
-                st.subheader(" Résumé de la prédiction")
+                st.subheader("📈 Résumé de la prédiction")
 
                 current_price = df['Close'].iloc[-1]
                 predicted_price = res['future_predictions'][0]
@@ -593,9 +594,9 @@ if launch:
             # ====== TABS PRINCIPAUX ======
 
             tab1, tab2, tab3 = st.tabs([
-            " Prévision à 10 jours",
-            " Cours actuel",
-            " Sources RAG"
+            "🔮 Prévision à 10 jours",
+            "📊 Cours actuel",
+            "📚 Sources RAG"
             ])
 
             with tab1:
@@ -621,15 +622,15 @@ if launch:
             with tab3:
                 render_sources_tab(sources)
             # ====== BLOC DEBUG TECHNIQUE (OPT.) ======
-            #with st.expander("🔧 Détails techniques (pour développeurs)", expanded=False):
-            #    st.subheader("Requête envoyée à /analyze")
-            #    st.json(payload)
-            #    st.subheader("Réponse brute de /analyze")
-            #    st.json(data)
-            #    st.code(f"Status code: {resp.status_code}")
-            #    if isinstance(lstm_input, list) and lstm_input:
-            #        st.subheader("Input LSTM (liste complète)")
-            #        st.write(lstm_input)
-            #    elif isinstance(lstm_input, (int, float)):
-            #        st.subheader("Input LSTM (scalaire)")
-            #        st.write(lstm_input)
+            with st.expander("🔧 Détails techniques (pour développeurs)", expanded=False):
+                st.subheader("Requête envoyée à /analyze")
+                st.json(payload)
+                st.subheader("Réponse brute de /analyze")
+                st.json(data)
+                st.code(f"Status code: {resp.status_code}")
+                if isinstance(lstm_input, list) and lstm_input:
+                    st.subheader("Input LSTM (liste complète)")
+                    st.write(lstm_input)
+                elif isinstance(lstm_input, (int, float)):
+                    st.subheader("Input LSTM (scalaire)")
+                    st.write(lstm_input)

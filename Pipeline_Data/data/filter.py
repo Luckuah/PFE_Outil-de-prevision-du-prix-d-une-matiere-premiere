@@ -1,6 +1,3 @@
-"""
-Filter GDELT events by keywords and relevance
-"""
 import pandas as pd
 import re
 from typing import List, Set
@@ -11,13 +8,11 @@ logger = get_logger(__name__)
 
 
 class GDELTFilter:
-    """Filter for GDELT events related to oil and gas"""
-    
+
     def __init__(self):
-        """Initialize filter with keywords from config"""
+
         self.config = get_config()
-        
-        # Get keywords
+        #Main keywords to keep articles : oil, gas, organisations, crisis
         self.oil_keywords = self._normalize_keywords(
             self.config.get_keywords('oil')
         )
@@ -28,7 +23,6 @@ class GDELTFilter:
             self.config.get_keywords('organizations')
         )
         
-        # Combine all keywords
         self.all_keywords = self.oil_keywords | self.gas_keywords | self.org_keywords
         
         # Get oil producing countries
@@ -41,22 +35,14 @@ class GDELTFilter:
             self.config.get('filtering.relevant_event_codes', [])
         )
         
-        logger.info(f"✅ Filter initialized with {len(self.all_keywords)} keywords")
+        logger.info(f" Filter initialized with {len(self.all_keywords)} keywords")
         logger.info(f"   - Oil keywords: {len(self.oil_keywords)}")
         logger.info(f"   - Gas keywords: {len(self.gas_keywords)}")
         logger.info(f"   - Organizations: {len(self.org_keywords)}")
         logger.info(f"   - Oil countries: {len(self.oil_countries)}")
     
     def _normalize_keywords(self, keywords: List[str]) -> Set[str]:
-        """
-        Normalize keywords for matching
-        
-        Args:
-            keywords: List of keywords
-            
-        Returns:
-            Set of normalized keywords
-        """
+
         normalized = set()
         for kw in keywords:
             # Convert to lowercase
@@ -71,16 +57,7 @@ class GDELTFilter:
         return normalized
     
     def _contains_keywords(self, text: str, keywords: Set[str]) -> tuple:
-        """
-        Check if text contains any keywords
-        
-        Args:
-            text: Text to search in
-            keywords: Set of keywords to search for
-            
-        Returns:
-            Tuple of (bool, list of matched keywords)
-        """
+
         if pd.isna(text):
             return False, []
         
@@ -96,16 +73,8 @@ class GDELTFilter:
         return len(matched) > 0, matched
     
     def filter_by_keywords(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Filter events by keywords in actors and URL
         
-        Args:
-            df: DataFrame with GDELT events
-            
-        Returns:
-            Filtered DataFrame with keyword_matches column
-        """
-        logger.info(f"🔍 Filtering {len(df)} events by keywords...")
+        logger.info(f" Filtering {len(df)} events by keywords...")
         
         # Initialize column for matched keywords
         df['keyword_matches'] = None
@@ -138,21 +107,13 @@ class GDELTFilter:
         # Filter
         df_filtered = df[df['has_keywords'] == True].copy()
         
-        logger.info(f"✅ Kept {len(df_filtered)} events after keyword filtering ({len(df_filtered)/len(df)*100:.1f}%)")
+        logger.info(f" Kept {len(df_filtered)} events after keyword filtering ({len(df_filtered)/len(df)*100:.1f}%)")
         
         return df_filtered
     
     def filter_by_countries(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Filter events by oil-producing countries
         
-        Args:
-            df: DataFrame with GDELT events
-            
-        Returns:
-            Filtered DataFrame with is_oil_country flag
-        """
-        logger.info(f"🌍 Filtering by oil-producing countries...")
+        logger.info(f" Filtering by oil-producing countries...")
         
         df['is_oil_country'] = False
         
@@ -173,51 +134,32 @@ class GDELTFilter:
         # Filter
         df_filtered = df[df['is_oil_country'] == True].copy()
         
-        logger.info(f"✅ Kept {len(df_filtered)} events from oil countries ({len(df_filtered)/len(df)*100:.1f}%)")
+        logger.info(f" Kept {len(df_filtered)} events from oil countries ({len(df_filtered)/len(df)*100:.1f}%)")
         
         return df_filtered
     
     def filter_by_event_codes(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Filter events by relevant CAMEO event codes
         
-        Args:
-            df: DataFrame with GDELT events
-            
-        Returns:
-            Filtered DataFrame
-        """
         if not self.relevant_codes:
             return df
         
-        logger.info(f"📊 Filtering by {len(self.relevant_codes)} relevant event codes...")
+        logger.info(f" Filtering by {len(self.relevant_codes)} relevant event codes...")
         
         # Filter by EventRootCode
         if 'EventRootCode' in df.columns:
             df_filtered = df[df['EventRootCode'].isin(self.relevant_codes)].copy()
-            logger.info(f"✅ Kept {len(df_filtered)} events with relevant codes ({len(df_filtered)/len(df)*100:.1f}%)")
+            logger.info(f"Kept {len(df_filtered)} events with relevant codes ({len(df_filtered)/len(df)*100:.1f}%)")
             return df_filtered
         else:
-            logger.warning("⚠️ EventRootCode column not found, skipping event code filtering")
+            logger.warning(" EventRootCode column not found, skipping event code filtering")
             return df
     
     def apply_filters(self, df: pd.DataFrame, 
                      use_keywords: bool = True,
                      use_countries: bool = True,
                      use_event_codes: bool = False) -> pd.DataFrame:
-        """
-        Apply all filters to GDELT events
         
-        Args:
-            df: DataFrame with GDELT events
-            use_keywords: Apply keyword filter
-            use_countries: Apply country filter
-            use_event_codes: Apply event code filter
-            
-        Returns:
-            Filtered DataFrame
-        """
-        logger.info(f"🔧 Applying filters to {len(df)} events...")
+        logger.info(f" Applying filters to {len(df)} events...")
         
         initial_count = len(df)
         df_filtered = df.copy()
@@ -236,7 +178,7 @@ class GDELTFilter:
         final_count = len(df_filtered)
         retention_rate = (final_count / initial_count * 100) if initial_count > 0 else 0
         
-        logger.info(f"📈 Filtering complete:")
+        logger.info(f"Filtering complete:")
         logger.info(f"   - Initial events: {initial_count}")
         logger.info(f"   - Final events: {final_count}")
         logger.info(f"   - Retention rate: {retention_rate:.1f}%")
@@ -244,15 +186,7 @@ class GDELTFilter:
         return df_filtered
     
     def get_filter_stats(self, df: pd.DataFrame) -> dict:
-        """
-        Get statistics about filtering
-        
-        Args:
-            df: Filtered DataFrame
             
-        Returns:
-            Dictionary with statistics
-        """
         stats = {
             'total_events': len(df),
             'events_with_keywords': df['has_keywords'].sum() if 'has_keywords' in df.columns else 0,
